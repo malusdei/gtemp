@@ -24,13 +24,9 @@ $msg = "";
 class SpannerOps {    
     // It is assumed that all calls are going out the same GRPC connection.
     // Please clarify if each thread should spawn its own GRPC.
-    //public $instance;
-    //public $database;
-    //public $options;
-    //public $testfunc;
-    //global $msg;
+    
     public function __construct() {
-        //$this->$testfunc = $test;
+        //$this->testfunc = $test;
         }
 
     public function LoadKeys($database, $options) {
@@ -43,7 +39,7 @@ class SpannerOps {
          foreach ($results as $row) {
             $KEYS[] = $row['id'];
             }
-	return microtime() - $time_start;
+	return microtime(true) - $time_start;
         }
 
     public function PerformRead($database, $table, $key) {
@@ -61,27 +57,49 @@ class SpannerOps {
             $key = $row[0];
             }
 	*/
-	return microtime() - $time_start;
+	return microtime(true) - $time_start;
         }
 
     public function Update($database, $table, $key) {
         // Does a single update operation.
-        $field = rand(1,10);
-        // Generate a random value
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-        $randomValue = '';
+        $field = rand(0,9);
 	$time_start = microtime(true);
-        for ($i = 0; $i < strlen($characters); $i++)
-            $randomValue .= $characters[rand(0, $charactersLength - 1)];
         $operation = $database->transaction(['singleUse' => true])
             ->updateBatch($table, [
-                ['id' => $key, "field".$field => $randomValue],
+                ['id' => $key, "field".$field => $this->randString(false, 100)],
                 ])
             ->commit();
-	return microtime() - $time_start;
+	return microtime(true) - $time_start;
         }
-	
+
+    public function Insert($database, $table, $incount) {
+        $arrBatch = [];  //array of $arrFields
+        $arrFields = [];
+        for ($rCount = 0; $rCount < $incount; $rCount++) {
+            $arrFields["id"] = "user4" . $this->randString(true, 17);
+            for ($f = 0; $f < 10; $f++) {
+                $arrFields["field".$f] = $this->randString(false, 100);
+                }
+            $arrbatch[] = $arrFields;
+            }
+        $time_start = microtime(true);
+        $operation = $database->transaction(['singleUse' => true])->insertBatch($table, $arrBatch)->commit();
+        return microtime(true) - $time_start;
+        }
+
+    public function randString($num, $len) {
+        $strRand = "";
+        if ($num == true)
+            $characters = '0123456789';
+        else
+            $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charlen = strlen($characters);
+        for ($i = 0; $i < $len; $i++) {
+            $strRand .= $characters[rand(0, $charlen - 1)];
+            }
+        return $strRand;
+        }
+
     /* If we were going to use Threads, Threads would require us to have run() function
     public function run() {
         }
@@ -105,7 +123,6 @@ function parseCliOptions() {
         "key::",
         );
     $options = getopt("", $longopts);
-    var_dump($options);
     // Now we have things like $options["num_worker"]
     return $options;
     }
@@ -164,6 +181,9 @@ for ($cntYCSB = 0; $cntYCSB < $options['opcount']; $cntYCSB++) {
             break;
         case "Update":
             reportSwitch("Updated Key Val in ".$testOp->Update($database, $options['table'],"user1100197033673136279")." seconds.\n");
+            break;
+        case "Insert":
+            reportSwitch("Inserted {$options['recordcount']} records into {$options['table']} in ".$testOp->Insert($database, $options['table'],$options['recordcount'])." seconds.\n");
             break;
         default:
             break;
